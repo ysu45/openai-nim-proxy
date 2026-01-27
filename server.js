@@ -28,13 +28,15 @@ const MODEL_MAPPING = {
   'gpt-4o': 'deepseek-ai/deepseek-v3.1',
   'claude-3-opus': 'openai/gpt-oss-120b',
   'claude-3-sonnet': 'openai/gpt-oss-20b',
-  'gemini': 'qwen/qwen3-next-80b-a3b-thinking',
-  // 🔥 ADICIONE AQUI SEUS NOVOS MODELOS
+  'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking',
+  // 🔥 NOVOS MODELOS COM THINKING
   'kimi': 'moonshotai/kimi-k2-thinking',
-  'qwen': 'qwen/qwen3-next-80b-a3b-thinking',
-  'deepseek': 'deepseek-ai/deepseek-v3.1',
+  'qwen-thinking': 'qwen/qwen3-next-80b-a3b-thinking',
+  'deepseek-thinking': 'deepseek-ai/deepseek-v3.1',
+  // 🔥 OUTROS MODELOS POPULARES
   'llama-405b': 'meta/llama-3.1-405b-instruct',
-  'llama-70b': 'meta/llama-3.1-70b-instruct'
+  'llama-70b': 'meta/llama-3.1-70b-instruct',
+  'mistral-large': 'mistralai/mistral-large-2-instruct'
 };
 
 // Health check endpoint
@@ -104,7 +106,8 @@ app.post('/v1/chat/completions', async (req, res) => {
       temperature: temperature || 0.6,
       max_tokens: max_tokens || 9024,
       extra_body: ENABLE_THINKING_MODE ? { chat_template_kwargs: { thinking: true } } : undefined,
-      stream: stream || false
+      stream: stream || false,
+      stream_options: stream ? { include_usage: true } : undefined // 🔥 Include usage stats in stream
     };
     
     // Make request to NVIDIA NIM API
@@ -113,7 +116,8 @@ app.post('/v1/chat/completions', async (req, res) => {
         'Authorization': `Bearer ${NIM_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      responseType: stream ? 'stream' : 'json'
+      responseType: stream ? 'stream' : 'json',
+      timeout: 120000 // 🔥 2 minute timeout to prevent hanging
     });
     
     if (stream) {
@@ -121,19 +125,20 @@ app.post('/v1/chat/completions', async (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders(); // 🔥 CRITICAL: Force headers to be sent immediately
       
       let buffer = '';
       let reasoningStarted = false;
       
       response.data.on('data', (chunk) => {
         buffer += chunk.toString();
-        const lines = buffer.split('\\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop() || '';
         
         lines.forEach(line => {
           if (line.startsWith('data: ')) {
             if (line.includes('[DONE]')) {
-              res.write(line + '\\n');
+              res.write(line + '\n\n'); // Add extra newline
               return;
             }
             
@@ -147,14 +152,14 @@ app.post('/v1/chat/completions', async (req, res) => {
                   let combinedContent = '';
                   
                   if (reasoning && !reasoningStarted) {
-                    combinedContent = '<think>\\n' + reasoning;
+                    combinedContent = '<think>\n' + reasoning;
                     reasoningStarted = true;
                   } else if (reasoning) {
                     combinedContent = reasoning;
                   }
                   
                   if (content && reasoningStarted) {
-                    combinedContent += '</think>\\n\\n' + content;
+                    combinedContent += '</think>\n\n' + content;
                     reasoningStarted = false;
                   } else if (content) {
                     combinedContent += content;
@@ -173,18 +178,31 @@ app.post('/v1/chat/completions', async (req, res) => {
                   delete data.choices[0].delta.reasoning_content;
                 }
               }
-              res.write(`data: ${JSON.stringify(data)}\\n\\n`);
+              res.write(`data: ${JSON.stringify(data)}\n\n`);
             } catch (e) {
-              res.write(line + '\\n');
+              // Silently skip malformed chunks
+              console.error('Parse error (skipping):', e.message);
             }
           }
         });
       });
       
-      response.data.on('end', () => res.end());
+      response.data.on('end', () => {
+        // Send final [DONE] marker if not already sent
+        res.write('data: [DONE]\n\n');
+        res.end();
+      });
+      
       response.data.on('error', (err) => {
         console.error('Stream error:', err);
+        res.write('data: [DONE]\n\n');
         res.end();
+      });
+      
+      // Handle client disconnect
+      req.on('close', () => {
+        console.log('Client disconnected');
+        response.data.destroy();
       });
     } else {
       // Transform NIM response to OpenAI format with reasoning
@@ -197,7 +215,7 @@ app.post('/v1/chat/completions', async (req, res) => {
           let fullContent = choice.message?.content || '';
           
           if (SHOW_REASONING && choice.message?.reasoning_content) {
-            fullContent = '<think>\\n' + choice.message.reasoning_content + '\\n</think>\\n\\n' + fullContent;
+            fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\n' + fullContent;
           }
           
           return {
