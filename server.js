@@ -28,7 +28,13 @@ const MODEL_MAPPING = {
   'gpt-4o': 'deepseek-ai/deepseek-v3.1',
   'claude-3-opus': 'openai/gpt-oss-120b',
   'claude-3-sonnet': 'openai/gpt-oss-20b',
-  'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking' 
+  'gemini': 'qwen/qwen3-next-80b-a3b-thinking',
+  // 🔥 ADICIONE AQUI SEUS NOVOS MODELOS
+  'kimi': 'moonshotai/kimi-k2-thinking',
+  'qwen': 'qwen/qwen3-next-80b-a3b-thinking',
+  'deepseek': 'deepseek-ai/deepseek-v3.1',
+  'llama-405b': 'meta/llama-3.1-405b-instruct',
+  'llama-70b': 'meta/llama-3.1-70b-instruct'
 };
 
 // Health check endpoint
