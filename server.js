@@ -14,11 +14,9 @@ app.use(express.json());
 const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1';
 const NIM_API_KEY = process.env.NIM_API_KEY;
 
-// 🔥 REASONING DISPLAY TOGGLE - Shows/hides reasoning in output
-const SHOW_REASONING = false; // Set to true to show reasoning with <think> tags
-
-// 🔥 THINKING MODE TOGGLE - Enables thinking for specific models that support it
-const ENABLE_THINKING_MODE = false; // Set to true to enable chat_template_kwargs thinking parameter
+const SHOW_REASONING = process.env.SHOW_REASONING === 'true' || false;
+   const ENABLE_THINKING_MODE = process.env.ENABLE_THINKING_MODE === 'true' || false;
+```
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
