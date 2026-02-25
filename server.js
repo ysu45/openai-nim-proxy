@@ -14,9 +14,8 @@ app.use(express.json());
 const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1';
 const NIM_API_KEY = process.env.NIM_API_KEY;
 
-const SHOW_REASONING = process.env.SHOW_REASONING === 'true' || false;
-   const ENABLE_THINKING_MODE = process.env.ENABLE_THINKING_MODE === 'true' || false;
-```
+const SHOW_REASONING = process.env.SHOW_REASONING;
+const ENABLE_THINKING_MODE = process.env.ENABLE_THINKING_MODE;
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
